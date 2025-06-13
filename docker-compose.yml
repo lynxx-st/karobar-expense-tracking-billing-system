@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
+    depends_on:
+      - db
+      - redis
+      - mailhog
+    environment:
+      - APP_ENV=local
+      - DB_HOST=db
+      - DB_DATABASE=karobar
+      - DB_USERNAME=karobar
+      - DB_PASSWORD=karobar_password
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+      - MAIL_HOST=mailhog
+      - MAIL_PORT=1025
+      - MAIL_MAILER=smtp
+      - MAIL_ENCRYPTION=null
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+    networks:
+      - karobar-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: php artisan queue:work --tries=3 --timeout=90
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    depends_on:
+      - app
+      - redis
+    environment:
+      - APP_ENV=local
+      - QUEUE_CONNECTION=redis
+      - REDIS_HOST=redis
+    networks:
+      - karobar-network
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /usr/sbin/cron -f
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    depends_on:
+      - app
+    environment:
+      - APP_ENV=local
+    networks:
+      - karobar-network
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=karobar
+      - MYSQL_USER=karobar
+      - MYSQL_PASSWORD=karobar_password
+      - MYSQL_ROOT_PASSWORD=root_password
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - karobar-network
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - karobar-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - karobar-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=karobar
+      - PMA_PASSWORD=karobar_password
+    depends_on:
+      - db
+    networks:
+      - karobar-network
+
+networks:
+  karobar-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
+  redisdata:
+    driver: local
