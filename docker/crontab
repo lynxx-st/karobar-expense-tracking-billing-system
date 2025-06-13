@@ -1,0 +1,14 @@
+# Laravel Scheduler
+* * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1
+
+# Backup Database (Daily at 1 AM)
+0 1 * * * cd /var/www/html && php artisan backup:run --only-db >> /dev/null 2>&1
+
+# Generate Recurring Invoices (Daily at 2 AM)
+0 2 * * * cd /var/www/html && php artisan invoices:generate-recurring >> /dev/null 2>&1
+
+# Send Due Invoice Reminders (Daily at 9 AM)
+0 9 * * * cd /var/www/html && php artisan invoices:send-reminders >> /dev/null 2>&1
+
+# Clean Old Backups (Weekly on Sunday at 3 AM)
+0 3 * * 0 cd /var/www/html && php artisan backup:clean >> /dev/null 2>&1
